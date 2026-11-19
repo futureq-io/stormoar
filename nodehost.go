@@ -13,8 +13,8 @@
 // limitations under the License.
 
 /*
-Package dragonboat is a feature complete and highly optimized multi-group Raft
-implementation for providing consensus in distributed systems.
+Package dragonboat implements Stormoar, a multi-group Raft library for
+distributed consensus cloned from Dragonboat.
 
 The NodeHost struct is the facade interface for all features provided by the
 dragonboat package. Each NodeHost instance usually runs on a separate server
@@ -34,12 +34,12 @@ membership change requests to add or remove nodes from selected Raft shard.
 
 User applications can leverage the power of the Raft protocol by implementing
 the IStateMachine or IOnDiskStateMachine component, as defined in
-github.com/lni/dragonboat/v4/statemachine. Known as user state machines, each
+github.com/futureq-io/stormoar/v4/statemachine. Known as user state machines, each
 IStateMachine or IOnDiskStateMachine instance is in charge of updating, querying
 and snapshotting application data with minimum exposure to the Raft protocol
 itself.
 
-Dragonboat guarantees the linearizability of your I/O when interacting with the
+Stormoar guarantees the linearizability of your I/O when interacting with the
 IStateMachine or IOnDiskStateMachine instances. In plain English, writes (via
 making proposals) to your Raft shard appears to be instantaneous, once a write
 is completed, all later reads (via linearizable read based on Raft's ReadIndex
@@ -50,10 +50,10 @@ or the result of a later write.
 To strictly provide such guarantee, we need to implement the at-most-once
 semantic. For a client, when it retries the proposal that failed to complete by
 its deadline, it faces the risk of having the same proposal committed and
-applied twice into the user state machine. Dragonboat prevents this by
+applied twice into the user state machine. Stormoar prevents this by
 implementing the client session concept described in Diego Ongaro's PhD thesis.
 */
-package dragonboat // github.com/lni/dragonboat/v4
+package dragonboat // github.com/futureq-io/stormoar/v4
 
 import (
 	"context"
@@ -68,21 +68,21 @@ import (
 	"github.com/lni/goutils/logutil"
 	"github.com/lni/goutils/syncutil"
 
-	"github.com/lni/dragonboat/v4/client"
-	"github.com/lni/dragonboat/v4/config"
-	"github.com/lni/dragonboat/v4/internal/id"
-	"github.com/lni/dragonboat/v4/internal/invariants"
-	"github.com/lni/dragonboat/v4/internal/logdb"
-	"github.com/lni/dragonboat/v4/internal/registry"
-	"github.com/lni/dragonboat/v4/internal/rsm"
-	"github.com/lni/dragonboat/v4/internal/server"
-	"github.com/lni/dragonboat/v4/internal/settings"
-	"github.com/lni/dragonboat/v4/internal/transport"
-	"github.com/lni/dragonboat/v4/internal/utils"
-	"github.com/lni/dragonboat/v4/internal/vfs"
-	"github.com/lni/dragonboat/v4/raftio"
-	pb "github.com/lni/dragonboat/v4/raftpb"
-	sm "github.com/lni/dragonboat/v4/statemachine"
+	"github.com/futureq-io/stormoar/v4/client"
+	"github.com/futureq-io/stormoar/v4/config"
+	"github.com/futureq-io/stormoar/v4/internal/id"
+	"github.com/futureq-io/stormoar/v4/internal/invariants"
+	"github.com/futureq-io/stormoar/v4/internal/logdb"
+	"github.com/futureq-io/stormoar/v4/internal/registry"
+	"github.com/futureq-io/stormoar/v4/internal/rsm"
+	"github.com/futureq-io/stormoar/v4/internal/server"
+	"github.com/futureq-io/stormoar/v4/internal/settings"
+	"github.com/futureq-io/stormoar/v4/internal/transport"
+	"github.com/futureq-io/stormoar/v4/internal/utils"
+	"github.com/futureq-io/stormoar/v4/internal/vfs"
+	"github.com/futureq-io/stormoar/v4/raftio"
+	pb "github.com/futureq-io/stormoar/v4/raftpb"
+	sm "github.com/futureq-io/stormoar/v4/statemachine"
 )
 
 const (

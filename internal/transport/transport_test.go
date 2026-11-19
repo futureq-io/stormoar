@@ -33,14 +33,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/lni/dragonboat/v4/config"
-	"github.com/lni/dragonboat/v4/internal/registry"
-	"github.com/lni/dragonboat/v4/internal/rsm"
-	"github.com/lni/dragonboat/v4/internal/server"
-	"github.com/lni/dragonboat/v4/internal/settings"
-	"github.com/lni/dragonboat/v4/internal/vfs"
-	"github.com/lni/dragonboat/v4/raftio"
-	"github.com/lni/dragonboat/v4/raftpb"
+	"github.com/futureq-io/stormoar/v4/config"
+	"github.com/futureq-io/stormoar/v4/internal/registry"
+	"github.com/futureq-io/stormoar/v4/internal/rsm"
+	"github.com/futureq-io/stormoar/v4/internal/server"
+	"github.com/futureq-io/stormoar/v4/internal/settings"
+	"github.com/futureq-io/stormoar/v4/internal/vfs"
+	"github.com/futureq-io/stormoar/v4/raftio"
+	"github.com/futureq-io/stormoar/v4/raftpb"
 )
 
 var serverAddress = fmt.Sprintf("localhost:%d", getTestPort())
@@ -53,7 +53,8 @@ const (
 	testSnapshotIndex = uint64(12345)
 )
 
-const defaultTestPort = 26001
+// Use a separate port from the NodeHost and gossip registry test packages.
+const defaultTestPort = 26101
 
 func getTestPort() int {
 	pv := os.Getenv("DRAGONBOAT_TEST_PORT")

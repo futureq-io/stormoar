@@ -1,88 +1,91 @@
-on: [push, pull_request]
 name: Test
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
 jobs:
   unit-test:
     runs-on: ubuntu-22.04
+    env:
+      HAS_CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN != '' }}
     steps:
-    - name: Install Go
-      uses: actions/setup-go@v3
-      with:
-        go-version: 1.27.1
-    - name: Checkout code
-      uses: actions/checkout@v3
-    - name: Test
-      env:
-        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-      run: |
-       make actions-test
-       bash <(curl -s https://codecov.io/bash) -t $CODECOV_TOKEN
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Test with coverage
+        run: go test -timeout=40m -count=1 -coverprofile=coverage.txt ./...
+      - name: Upload coverage
+        if: env.HAS_CODECOV_TOKEN == 'true'
+        uses: codecov/codecov-action@v6
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.txt
+          disable_search: true
   race-unit-test:
     runs-on: ubuntu-22.04
     steps:
-    - name: Install Go
-      uses: actions/setup-go@v3
-      with:
-        go-version: 1.27.1
-    - name: Checkout code
-      uses: actions/checkout@v3
-    - name: Test
-      run: RACE=1 make test
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Test with race detector
+        run: go test -timeout=40m -count=1 -race ./...
   memfs-unit-test:
     runs-on: ubuntu-22.04
     steps:
-    - name: Install Go
-      uses: actions/setup-go@v3
-      with:
-        go-version: 1.27.1
-    - name: Checkout code
-      uses: actions/checkout@v3
-    - name: Test
-      run: MEMFS_TEST=1 make test
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Test with in-memory storage
+        run: go test -timeout=40m -count=1 -tags=dragonboat_memfs_test ./...
   macos-unit-test:
     runs-on: macos-latest
     steps:
-    - name: Install Go
-      uses: actions/setup-go@v3
-      with:
-        go-version: 1.27.1
-    - name: Checkout code
-      uses: actions/checkout@v3
-    - name: Test
-      run: make test
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Test on macOS
+        run: go test -timeout=40m -count=1 ./...
   build-tools:
     runs-on: ubuntu-22.04
     steps:
-    - name: Install Go
-      uses: actions/setup-go@v3
-      with:
-        go-version: 1.27.1
-    - name: Checkout code
-      uses: actions/checkout@v3
-    - name: Build
-      run: make tools
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Build tools
+        run: go build ./tools/...
   build-examples:
     runs-on: ubuntu-22.04
     steps:
-    - name: Install Go
-      uses: actions/setup-go@v3
-      with:
-        go-version: 1.27.1
-    - name: Build
-      run: |
-       git clone https://github.com/lni/dragonboat-example
-       cd dragonboat-example
-       GOPROXY=direct go get github.com/lni/dragonboat/v4@master
-       make
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Check out upstream examples
+        uses: actions/checkout@v6
+        with:
+          repository: lni/dragonboat-example
+          ref: d343e50c89be131b0a6a3f27c1f2719dc9524ce6
+          path: upstream-examples
+          persist-credentials: false
+      - name: Build examples against Stormoar
+        working-directory: upstream-examples
+        run: |
+          bash "$GITHUB_WORKSPACE/.github/scripts/use-local-stormoar.sh" "$GITHUB_WORKSPACE"
+          make
   static-check:
     runs-on: ubuntu-22.04
-    steps: 
-     - name: Install Go
-       uses: actions/setup-go@v3
-       with:
-         go-version: 1.27.1
-     - name: Checkout code
-       uses: actions/checkout@v3
-     - name: Static check
-       run: |
-        make install-static-check-tools
-        make static-check
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Static check
+        run: |
+          make install-static-check-tools
+          make static-check

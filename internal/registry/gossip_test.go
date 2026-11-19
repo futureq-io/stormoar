@@ -22,8 +22,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/lni/dragonboat/v4/config"
-	"github.com/lni/dragonboat/v4/internal/id"
+	"github.com/futureq-io/stormoar/v4/config"
+	"github.com/futureq-io/stormoar/v4/internal/id"
 )
 
 const (
@@ -60,9 +60,9 @@ func TestGossipRegistry(t *testing.T) {
 	nhConfig := config.NodeHostConfig{
 		RaftAddress: "localhost:27001",
 		Gossip: config.GossipConfig{
-			BindAddress:      "localhost:26001",
-			AdvertiseAddress: "127.0.0.1:26001",
-			Seed:             []string{"127.0.0.1:26002"},
+			BindAddress:      "localhost:26201",
+			AdvertiseAddress: "127.0.0.1:26201",
+			Seed:             []string{"127.0.0.1:26202"},
 		},
 	}
 	r, err := NewGossipRegistry(nhid, nil, nhConfig, 1, id.IsNodeHostID)
@@ -97,9 +97,9 @@ func TestGossipManagerCanBeCreatedAndStopped(t *testing.T) {
 	nhConfig := config.NodeHostConfig{
 		RaftAddress: "localhost:27001",
 		Gossip: config.GossipConfig{
-			BindAddress:      "localhost:26001",
-			AdvertiseAddress: "127.0.0.1:26001",
-			Seed:             []string{"127.0.0.1:26002"},
+			BindAddress:      "localhost:26201",
+			AdvertiseAddress: "127.0.0.1:26201",
+			Seed:             []string{"127.0.0.1:26202"},
 		},
 	}
 	m, err := newGossipManager(nhid, nil, nhConfig)
@@ -109,7 +109,7 @@ func TestGossipManagerCanBeCreatedAndStopped(t *testing.T) {
 		require.NoError(t, err)
 	}()
 	require.Equal(t, 1, m.numMembers())
-	require.Equal(t, "127.0.0.1:26001", m.advertiseAddress())
+	require.Equal(t, "127.0.0.1:26201", m.advertiseAddress())
 	addr, ok := m.GetRaftAddress(nhid)
 	require.True(t, ok)
 	require.Equal(t, nhConfig.RaftAddress, addr)
@@ -124,9 +124,9 @@ func TestGossipManagerCanGossip(t *testing.T) {
 			TestGossipProbeInterval: 10 * time.Millisecond,
 		},
 		Gossip: config.GossipConfig{
-			BindAddress:      "localhost:26001",
-			AdvertiseAddress: "127.0.0.1:26001",
-			Seed:             []string{"127.0.0.1:26002"},
+			BindAddress:      "localhost:26201",
+			AdvertiseAddress: "127.0.0.1:26201",
+			Seed:             []string{"127.0.0.1:26202"},
 		},
 	}
 	nhid2 := testNodeHostID2
@@ -136,9 +136,9 @@ func TestGossipManagerCanGossip(t *testing.T) {
 			TestGossipProbeInterval: 10 * time.Millisecond,
 		},
 		Gossip: config.GossipConfig{
-			BindAddress:      "localhost:26002",
-			AdvertiseAddress: "127.0.0.1:26002",
-			Seed:             []string{"127.0.0.1:26001"},
+			BindAddress:      "localhost:26202",
+			AdvertiseAddress: "127.0.0.1:26202",
+			Seed:             []string{"127.0.0.1:26201"},
 		},
 	}
 	m1, err := newGossipManager(nhid1, nil, nhConfig1)

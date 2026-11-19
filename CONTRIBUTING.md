@@ -1,4 +1,4 @@
-# Contributing to Dragonboat
+# Contributing to Stormoar
 
 * Please read the included LICENSE file to understand the licensing and copyright arrangements.
 * It is always good to raise an issue or draft pull request to discuss your proposed changes first.

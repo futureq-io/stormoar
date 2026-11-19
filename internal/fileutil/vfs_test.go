@@ -17,7 +17,7 @@ package fileutil
 import (
 	"testing"
 
-	"github.com/lni/dragonboat/v4/internal/vfs"
+	"github.com/futureq-io/stormoar/v4/internal/vfs"
 	"github.com/stretchr/testify/require"
 )
 

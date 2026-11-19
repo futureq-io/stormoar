@@ -15,10 +15,10 @@
 package tee
 
 import (
-	"github.com/lni/dragonboat/v4/config"
-	tl "github.com/lni/dragonboat/v4/internal/logdb/tee"
-	"github.com/lni/dragonboat/v4/internal/tan"
-	"github.com/lni/dragonboat/v4/raftio"
+	"github.com/futureq-io/stormoar/v4/config"
+	tl "github.com/futureq-io/stormoar/v4/internal/logdb/tee"
+	"github.com/futureq-io/stormoar/v4/internal/tan"
+	"github.com/futureq-io/stormoar/v4/raftio"
 )
 
 // CreateTanPebbleLogDB creates a Tee LogDB backed by Tan and Pebble.

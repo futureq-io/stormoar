@@ -21,9 +21,9 @@ import (
 	"github.com/lni/goutils/syncutil"
 	"github.com/stretchr/testify/require"
 
-	"github.com/lni/dragonboat/v4/config"
-	"github.com/lni/dragonboat/v4/internal/vfs"
-	pb "github.com/lni/dragonboat/v4/raftpb"
+	"github.com/futureq-io/stormoar/v4/config"
+	"github.com/futureq-io/stormoar/v4/internal/vfs"
+	pb "github.com/futureq-io/stormoar/v4/raftpb"
 )
 
 func TestSnapshotJobCanBeCreatedInSavedMode(t *testing.T) {
