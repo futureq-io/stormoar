@@ -26,9 +26,9 @@ import (
 	"sync/atomic"
 
 	"github.com/cockroachdb/errors"
-	"github.com/lni/dragonboat/v4/logger"
-	"github.com/lni/dragonboat/v4/raftio"
-	pb "github.com/lni/dragonboat/v4/raftpb"
+	"github.com/futureq-io/stormoar/v4/logger"
+	"github.com/futureq-io/stormoar/v4/raftio"
+	pb "github.com/futureq-io/stormoar/v4/raftpb"
 	"github.com/lni/goutils/syncutil"
 	"github.com/lni/vfs"
 )

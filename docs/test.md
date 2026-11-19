@@ -1,11 +1,23 @@
 # Testing #
 
-## Approaches ##
-* Test driven development. Relevant [etcd raft](https://github.com/coreos/etcd/tree/master/raft) tests have been ported to dragonboat to ensure all corner cases identified by the etcd project have been handled.
+```sh
+go test ./...
+go test -race ./...
+go test -tags=dragonboat_memfs_test ./...
+make install-static-check-tools
+make static-check
+```
+
+The [Nightly workflow](../.github/workflows/nightly.yml) runs the upstream
+Dragonboat Drummer harness against the Stormoar checkout. It covers the standard
+and on-disk state machines with the race detector and with in-memory log storage.
+
+## Testing inherited from Dragonboat ##
+* Test driven development. Relevant [etcd raft](https://github.com/coreos/etcd/tree/master/raft) tests have been ported to Dragonboat to ensure all corner cases identified by the etcd project have been handled.
 * High test coverage. Extensively tested by unit testing and [monkey testing](https://en.wikipedia.org/wiki/Monkey_testing).
 * Linearizability checkers. [Jepsen's](https://github.com/jepsen-io/jepsen) [Knossos](https://github.com/jepsen-io/knossos) and [porcupine](https://github.com/anishathalye/porcupine) are utilized to check whether IOs are linearizable.
 * Fuzz testing using [go-fuzz](https://github.com/dvyukov/go-fuzz).
-* I/O error injection tests. [charybdefs](https://github.com/scylladb/charybdefs) from [scylladb](http://www.scylladb.com/) is employed to inject I/O errors to the underlying file-system to ensure that Dragonboat handle them correctly.
+* I/O error injection tests. [charybdefs](https://github.com/scylladb/charybdefs) from [scylladb](http://www.scylladb.com/) is employed to inject I/O errors to the underlying file-system to check that Dragonboat handles them correctly.
 * Power loss tests. We test the system to see what actually happens after power loss.
 
 ## Monkey Testing ##

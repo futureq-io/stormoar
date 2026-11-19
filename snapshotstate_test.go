@@ -22,8 +22,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/lni/dragonboat/v4/internal/rsm"
-	pb "github.com/lni/dragonboat/v4/raftpb"
+	"github.com/futureq-io/stormoar/v4/internal/rsm"
+	pb "github.com/futureq-io/stormoar/v4/raftpb"
 )
 
 func TestSnapshotTaskCanBeSet(t *testing.T) {

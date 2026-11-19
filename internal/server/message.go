@@ -18,7 +18,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	pb "github.com/lni/dragonboat/v4/raftpb"
+	pb "github.com/futureq-io/stormoar/v4/raftpb"
 )
 
 type delayed struct {

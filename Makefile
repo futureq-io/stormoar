@@ -13,7 +13,7 @@
 # limitations under the License.
 
 GOEXEC ?= go
-# Dragonboat is known to work on - 
+# Stormoar is known to work on
 # Linux AMD64, Linux ARM64, MacOS, Windows/MinGW and FreeBSD AMD64
 # only Linux AMD64 is officially supported
 OS := $(shell uname)
@@ -204,17 +204,17 @@ tools-checkdisk:
 ###############################################################################
 # static checks
 ###############################################################################
-GOLANGCI_LINT_VERSION=v2.1.6
+GOLANGCI_LINT_VERSION=v2.15.0
 .PHONY: install-static-check-tools
 install-static-check-tools:
 	@go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 
-EXTRA_LINTERS=-E misspell -E rowserrcheck -E unconvert -E prealloc
+EXTRA_LINTERS=-E misspell -E rowserrcheck -E unconvert
 .PHONY: static-check
 static-check:
 	golangci-lint run --timeout 3m $(EXTRA_LINTERS)
 
-extra-static-check: override EXTRA_LINTERS :=-E dupl
+extra-static-check: override EXTRA_LINTERS :=-E dupl -E prealloc
 extra-static-check: static-check
 
 ###############################################################################

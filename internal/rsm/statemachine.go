@@ -28,15 +28,15 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/lni/goutils/logutil"
 
-	"github.com/lni/dragonboat/v4/config"
-	"github.com/lni/dragonboat/v4/internal/raft"
-	"github.com/lni/dragonboat/v4/internal/server"
-	"github.com/lni/dragonboat/v4/internal/settings"
-	"github.com/lni/dragonboat/v4/internal/utils"
-	"github.com/lni/dragonboat/v4/internal/vfs"
-	"github.com/lni/dragonboat/v4/logger"
-	pb "github.com/lni/dragonboat/v4/raftpb"
-	sm "github.com/lni/dragonboat/v4/statemachine"
+	"github.com/futureq-io/stormoar/v4/config"
+	"github.com/futureq-io/stormoar/v4/internal/raft"
+	"github.com/futureq-io/stormoar/v4/internal/server"
+	"github.com/futureq-io/stormoar/v4/internal/settings"
+	"github.com/futureq-io/stormoar/v4/internal/utils"
+	"github.com/futureq-io/stormoar/v4/internal/vfs"
+	"github.com/futureq-io/stormoar/v4/logger"
+	pb "github.com/futureq-io/stormoar/v4/raftpb"
+	sm "github.com/futureq-io/stormoar/v4/statemachine"
 )
 
 var (
@@ -749,7 +749,7 @@ func (s *StateMachine) setLastApplied(entries []pb.Entry) {
 		s.lastApplied.Lock()
 		defer s.lastApplied.Unlock()
 		if s.lastApplied.index+1 != entries[0].Index {
-			plog.Panicf("%s, gap between batches, %d, %d", s.id())
+			plog.Panicf("%s, gap between batches, %d, %d", s.id(), s.lastApplied.index, entries[0].Index)
 		}
 		if s.lastApplied.term > entries[0].Term {
 			plog.Panicf("%s, invalid term", s.id())

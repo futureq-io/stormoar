@@ -1,6 +1,6 @@
 # Raft Log Storage #
 
-Dragonboat uses [Pebble](https://github.com/cockroachdb/pebble) to store Raft logs, Pebble is a RocksDB compatible Key-Value store.
+Stormoar uses [Pebble](https://github.com/cockroachdb/pebble) to store Raft logs, Pebble is a RocksDB compatible Key-Value store.
 
 ## Compatibility ##
 
@@ -12,15 +12,15 @@ Pebble is used by default, no configuration is required.
 
 ## RocksDB ##
 
-RocksDB support was removed in the v3.4 release. 
+Dragonboat removed its RocksDB storage backend in v3.4.
 
 ## Use custom storage solution ##
 
-You can extend Dragonboat to use your preferred storage solution to store Raft logs -
+You can extend Stormoar to use your preferred storage solution to store Raft logs -
 
-* implement the ILogDB interface defined in the github.com/lni/dragonboat/v4/raftio package
+* implement the ILogDB interface defined in the github.com/futureq-io/stormoar/v4/raftio package
 * pass a factory function that creates such a custom Log DB instance to the LogDBFactory field of your NodeHostConfig.Expert instance
 
 ## Tan
 
-Tan is Dragonboat's new Raft Log storage solution, it will be made the default in future releases. Impacts to existing users will be minimized in such planned transition and pebble based log storage will continue to be support.  
+Tan is an alternative Raft log storage engine. To use it, set the LogDB factory to `tan.Factory` from `github.com/futureq-io/stormoar/v4/plugin/tan`.

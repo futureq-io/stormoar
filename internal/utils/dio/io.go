@@ -19,8 +19,8 @@ import (
 	"math"
 	"sync/atomic"
 
+	pb "github.com/futureq-io/stormoar/v4/raftpb"
 	"github.com/golang/snappy"
-	pb "github.com/lni/dragonboat/v4/raftpb"
 )
 
 // CompressionType is the type of the compression.

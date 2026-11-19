@@ -18,7 +18,7 @@ import (
 	"log"
 	"strings"
 
-	"github.com/lni/dragonboat/v4/logger"
+	"github.com/futureq-io/stormoar/v4/logger"
 )
 
 type gossipLogWriter struct {
@@ -32,18 +32,18 @@ func (l *gossipLogWriter) Write(p []byte) (int, error) {
 	switch {
 	case strings.HasPrefix(str, "[WARN] "):
 		str = strings.TrimPrefix(str, "[WARN] ")
-		l.logger.Warningf(str)
+		l.logger.Warningf("%s", str)
 	case strings.HasPrefix(str, "[DEBUG] "):
 		str = strings.TrimPrefix(str, "[DEBUG] ")
-		l.logger.Debugf(str)
+		l.logger.Debugf("%s", str)
 	case strings.HasPrefix(str, "[INFO] "):
 		str = strings.TrimPrefix(str, "[INFO] ")
-		l.logger.Infof(str)
+		l.logger.Infof("%s", str)
 	case strings.HasPrefix(str, "[ERR] "):
 		str = strings.TrimPrefix(str, "[ERR] ")
-		l.logger.Warningf(str)
+		l.logger.Warningf("%s", str)
 	default:
-		l.logger.Warningf(str)
+		l.logger.Warningf("%s", str)
 	}
 
 	return len(p), nil
