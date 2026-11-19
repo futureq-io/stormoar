@@ -8,12 +8,12 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"math/rand/v2"
 	"strings"
 	"testing"
 
 	"github.com/cockroachdb/errors"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/rand"
 )
 
 func short(s string) string {
@@ -125,14 +125,14 @@ func TestRandom(t *testing.T) {
 		r *rand.Rand
 	)
 	reset := func() {
-		i, r = 0, rand.New(rand.NewSource(0))
+		i, r = 0, rand.New(rand.NewPCG(0, 0))
 	}
 	gen := func() (string, bool) {
 		if i == n {
 			return "", false
 		}
 		i++
-		return strings.Repeat(string(uint8(i)), r.Intn(2*blockSize+16)), true
+		return strings.Repeat(string(uint8(i)), r.IntN(2*blockSize+16)), true
 	}
 	testGenerator(t, reset, gen)
 }
@@ -226,11 +226,11 @@ func TestNonExhaustiveRead(t *testing.T) {
 	const n = 100
 	buf := new(bytes.Buffer)
 	p := make([]byte, 10)
-	rnd := rand.New(rand.NewSource(1))
+	rnd := rand.New(rand.NewPCG(1, 1))
 
 	w := newWriter(buf)
 	for i := 0; i < n; i++ {
-		length := len(p) + rnd.Intn(3*blockSize)
+		length := len(p) + rnd.IntN(3*blockSize)
 		s := string(uint8(i)) + "123456789abcdefgh"
 		_, _ = w.writeRecord([]byte(big(s, length)))
 	}
@@ -797,8 +797,9 @@ func TestSize(t *testing.T) {
 	var buf bytes.Buffer
 	zeroes := make([]byte, 8<<10)
 	w := newWriter(&buf)
+	rnd := rand.New(rand.NewPCG(1, 1))
 	for i := 0; i < 100; i++ {
-		n := rand.Intn(len(zeroes))
+		n := rnd.IntN(len(zeroes))
 		_, err := w.writeRecord(zeroes[:n])
 		require.NoError(t, err)
 		require.NoError(t, w.flush())

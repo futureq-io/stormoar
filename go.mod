@@ -13,7 +13,6 @@ require (
 	github.com/lni/vfs v0.2.1-0.20220616104132-8852fd867376
 	github.com/pierrec/lz4/v4 v4.1.33
 	github.com/stretchr/testify v1.12.1
-	golang.org/x/exp v0.0.0-20261118215729-2791e4028fd4
 	golang.org/x/sys v0.50.0
 )
 
@@ -41,6 +40,7 @@ require (
 	github.com/valyala/fastrand v1.1.0 // indirect
 	github.com/valyala/histogram v1.2.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
+	golang.org/x/exp v0.0.0-20261118215729-2791e4028fd4 // indirect
 	golang.org/x/net v0.63.0 // indirect
 	golang.org/x/text v0.44.0 // indirect
 )
