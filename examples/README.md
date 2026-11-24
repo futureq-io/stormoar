@@ -1,10 +1,15 @@
 # Examples
 
-The upstream [Dragonboat examples](https://github.com/lni/dragonboat-example)
-cover a single Raft shard, multiple shards, on-disk state machines, and
-optimistic locking. When adapting them to Stormoar, update Dragonboat v4 import
-paths to `github.com/futureq-io/stormoar/v4`. The root package name is
-`dragonboat`.
+The [single-node example](single-node/main.go) starts a Stormoar shard, proposes
+a value, and reads it back through Raft. Run it from the repository root.
 
-The Test workflow builds a pinned revision of these examples against the
-Stormoar checkout.
+```sh
+go run ./examples/single-node
+```
+
+It uses loopback port 26011 and a temporary data directory. The Test workflow
+runs this example against the Stormoar checkout.
+
+The upstream [Dragonboat examples](https://github.com/lni/dragonboat-example)
+are historical references for multiple shards, on-disk state machines, and
+optimistic locking.

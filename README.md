@@ -71,10 +71,10 @@ Go 1.27.1 or later. CI tests Linux and macOS.
 
 ## Getting started ##
 
-Install Stormoar from its development branch.
+Install the latest tagged Stormoar release.
 
 ```sh
-go get github.com/futureq-io/stormoar/v4@main
+go get github.com/futureq-io/stormoar/v4@latest
 ```
 
 The root Go package is named `dragonboat`. To use `stormoar` in your code, give the import an alias.
