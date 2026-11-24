@@ -8,9 +8,11 @@ make install-static-check-tools
 make static-check
 ```
 
-The [Nightly workflow](../.github/workflows/nightly.yml) runs the upstream
-Dragonboat Drummer harness against the Stormoar checkout. It covers the standard
-and on-disk state machines with the race detector and with in-memory log storage.
+The [Nightly workflow](../.github/workflows/nightly.yml) runs Stormoar's
+test suite with the fault-injection build enabled. It exercises the suite
+with the race detector and with in-memory log storage. Both modes enable
+the slow snapshot test, which starts 96 shards and streams snapshots to a
+second NodeHost.
 
 ## Testing inherited from Dragonboat ##
 * Test driven development. Relevant [etcd raft](https://github.com/coreos/etcd/tree/master/raft) tests have been ported to Dragonboat to ensure all corner cases identified by the etcd project have been handled.
@@ -20,8 +22,8 @@ and on-disk state machines with the race detector and with in-memory log storage
 * I/O error injection tests. [charybdefs](https://github.com/scylladb/charybdefs) from [scylladb](http://www.scylladb.com/) is employed to inject I/O errors to the underlying file-system to check that Dragonboat handles them correctly.
 * Power loss tests. We test the system to see what actually happens after power loss.
 
-## Monkey Testing ##
-### Setup ###
+### Upstream monkey testing
+#### Setup
 * 5 NodeNosts and 3 Drummer servers per process
 * hundreds of Raft shards per process
 * randomly kill and restart NodeHosts and Drummer servers, each NodeHost usually stay online for a few minutes
@@ -36,7 +38,7 @@ and on-disk state machines with the race detector and with in-memory log storage
 * run hundreds of above described processes concurrently on each test server, 30 minutes each iteration, many iterations every night
 * run concurrently on many servers every night
 
-### Checks ###
+#### Checks
 * no linearizability violation
 * no shard is permanently stuck
 * state machines must be in sync
@@ -44,7 +46,7 @@ and on-disk state machines with the race detector and with in-memory log storage
 * raft log saved in LogDB must be consistent
 * no zombie shard node
 
-### Results ###
+#### Results
 Some history files in Jepsen's [Knossos](https://github.com/jepsen-io/knossos) edn format have been made publicly [available](https://github.com/lni/knossos-data).
 
 # Benchmark #

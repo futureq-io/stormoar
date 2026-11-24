@@ -1,5 +1,10 @@
 name: Test
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -11,6 +16,8 @@ jobs:
       HAS_CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
@@ -27,6 +34,8 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
@@ -36,6 +45,8 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
@@ -45,6 +56,8 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
@@ -54,6 +67,8 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
@@ -63,25 +78,19 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
-      - name: Check out upstream examples
-        uses: actions/checkout@v6
-        with:
-          repository: lni/dragonboat-example
-          ref: d343e50c89be131b0a6a3f27c1f2719dc9524ce6
-          path: upstream-examples
-          persist-credentials: false
-      - name: Build examples against Stormoar
-        working-directory: upstream-examples
-        run: |
-          bash "$GITHUB_WORKSPACE/.github/scripts/use-local-stormoar.sh" "$GITHUB_WORKSPACE"
-          make
+      - name: Run single-node example
+        run: go run ./examples/single-node
   static-check:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod

@@ -60,6 +60,7 @@ import (
 	"math"
 	"reflect"
 	"runtime"
+	"runtime/debug"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -2173,18 +2174,37 @@ func (h *messageHandler) HandleSnapshot(shardID uint64,
 }
 
 func logBuildTagsAndVersion() {
-	devstr := "Rel"
-	if DEVVersion {
-		devstr = "Dev"
-	}
 	plog.Infof("go version: %s, %s/%s",
 		runtime.Version(), runtime.GOOS, runtime.GOARCH)
-	plog.Infof("dragonboat version: %d.%d.%d (%s)",
-		DragonboatMajor, DragonboatMinor, DragonboatPatch, devstr)
+	plog.Infof("stormoar version: %s", stormoarBuildVersion())
 	if !invariants.IsSupportedOS() || !invariants.IsSupportedArch() {
 		plog.Warningf("unsupported OS/ARCH %s/%s, don't use for production",
 			runtime.GOOS, runtime.GOARCH)
 	}
+}
+
+func stormoarBuildVersion() string {
+	const modulePath = "github.com/futureq-io/stormoar/v4"
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return "unknown"
+	}
+	if info.Main.Path == modulePath {
+		return info.Main.Version
+	}
+	for _, dep := range info.Deps {
+		if dep.Path != modulePath {
+			continue
+		}
+		if dep.Replace != nil {
+			if dep.Replace.Version == "" {
+				return "(devel)"
+			}
+			return dep.Replace.Version
+		}
+		return dep.Version
+	}
+	return "unknown"
 }
 
 func panicNow(err error) {

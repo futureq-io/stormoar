@@ -8,37 +8,25 @@ permissions:
   contents: read
 
 jobs:
-  monkey-test:
+  stress-test:
+    name: Stress tests (${{ matrix.mode }})
     runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
-        target: [race-monkey-test, race-ondisk-monkey-test, memfs-monkey-test, memfs-ondisk-monkey-test]
+        include:
+          - mode: race
+            flags: -race -tags=dragonboat_monkeytest
+          - mode: memfs
+            flags: -tags=dragonboat_monkeytest,dragonboat_memfs_test
+    env:
+      SLOW_TEST: '1'
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
-      - name: Check out Drummer
-        uses: actions/checkout@v6
-        with:
-          repository: lni/drummer
-          ref: c8eabd881e943f9824683c21bbdccdd66d1f4abe
-          path: drummer
-          persist-credentials: false
-      - name: Prepare Drummer for Stormoar and Go 1.27
-        working-directory: drummer
-        run: |
-          bash "$GITHUB_WORKSPACE/.github/scripts/use-local-stormoar.sh" "$GITHUB_WORKSPACE"
-          perl -pi -e 's/\.Errorf\(err\.Error\(\)\)/.Errorf("%s", err.Error())/g' drummer.go election.go scheduler_test.go
-          perl -pi -e 's/status\.Errorf\(code, err\.Error\(\)\)/status.Errorf(code, "%s", err.Error())/g' nodehostapi.go
-      - name: Test Drummer
-        working-directory: drummer
-        run: make test
-      - name: Run monkey test against Stormoar
-        working-directory: drummer
-        env:
-          TARGET: ${{ matrix.target }}
-          # Drummer's runtest target does not pass its RACE variable to go test.
-          GOFLAGS: ${{ startsWith(matrix.target, 'race-') && '-race' || '' }}
-        run: make "$TARGET"
+      - name: Run Stormoar tests with stress checks
+        run: go test -timeout=20m -count=1 ${{ matrix.flags }} ./...
