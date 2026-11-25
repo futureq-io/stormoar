@@ -18,10 +18,11 @@ package pebble
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"sync"
 
-	"github.com/cockroachdb/pebble"
+	"github.com/cockroachdb/pebble/v2"
 	"github.com/lni/goutils/syncutil"
 
 	"github.com/futureq-io/stormoar/v4/config"
@@ -127,6 +128,10 @@ func (pebbleLogger) Infof(format string, args ...interface{}) {
 	pebble.DefaultLogger.Infof(format, args...)
 }
 
+func (pebbleLogger) Errorf(format string, args ...interface{}) {
+	pebble.DefaultLogger.Errorf(format, args...)
+}
+
 func (pebbleLogger) Fatalf(format string, args ...interface{}) {
 	pebble.DefaultLogger.Infof(format, args...)
 	panic(fmt.Errorf(format, args...))
@@ -164,43 +169,36 @@ func openPebbleDB(config config.LogDBConfig, callback kv.LogDBCallback,
 			plog.Warningf("running in pebble memfs test mode")
 		}
 	})
-	blockSize := int(config.KVBlockSize)
-	writeBufferSize := int(config.KVWriteBufferSize)
-	maxWriteBufferNumber := int(config.KVMaxWriteBufferNumber)
-	l0FileNumCompactionTrigger := int(config.KVLevel0FileNumCompactionTrigger)
-	l0StopWritesTrigger := int(config.KVLevel0StopWritesTrigger)
-	maxBytesForLevelBase := int64(config.KVMaxBytesForLevelBase)
-	targetFileSizeBase := int64(config.KVTargetFileSizeBase)
-	cacheSize := int64(config.KVLRUCacheSize)
-	levelSizeMultiplier := int64(config.KVTargetFileSizeMultiplier)
-	numOfLevels := int64(config.KVNumOfLevels)
-	lopts := make([]pebble.LevelOptions, 0)
-	sz := targetFileSizeBase
-	for l := int64(0); l < numOfLevels; l++ {
-		opt := pebble.LevelOptions{
-			Compression:    pebble.NoCompression,
-			BlockSize:      blockSize,
-			TargetFileSize: sz,
-		}
-		sz = sz * levelSizeMultiplier
-		lopts = append(lopts, opt)
-	}
+	writeBufferSize := config.KVWriteBufferSize
 	if inMonkeyTesting {
 		writeBufferSize = 1024 * 1024 * 4
 	}
-	cache := pebble.NewCache(cacheSize)
+	cache := pebble.NewCache(int64(config.KVLRUCacheSize))
+	defer cache.Unref()
 	ro := &pebble.IterOptions{}
 	wo := &pebble.WriteOptions{Sync: true}
 	opts := &pebble.Options{
-		Levels:                      lopts,
+		FormatMajorVersion:          pebble.FormatNewest,
 		MaxManifestFileSize:         maxLogFileSize,
 		MemTableSize:                writeBufferSize,
-		MemTableStopWritesThreshold: maxWriteBufferNumber,
-		LBaseMaxBytes:               maxBytesForLevelBase,
-		L0CompactionFileThreshold:   l0FileNumCompactionTrigger,
-		L0StopWritesThreshold:       l0StopWritesTrigger,
+		MemTableStopWritesThreshold: int(config.KVMaxWriteBufferNumber),
+		LBaseMaxBytes:               int64(config.KVMaxBytesForLevelBase),
+		L0CompactionFileThreshold:   int(config.KVLevel0FileNumCompactionTrigger),
+		L0StopWritesThreshold:       int(config.KVLevel0StopWritesTrigger),
 		Cache:                       cache,
 		Logger:                      PebbleLogger,
+	}
+	if config.KVNumOfLevels > 0 {
+		opts.Levels[0].BlockSize = int(config.KVBlockSize)
+		opts.ApplyCompressionSettings(func() pebble.DBCompressionSettings { return pebble.DBCompressionNone })
+		targetFileSize := int64(config.KVTargetFileSizeBase)
+		for level := range opts.TargetFileSizes {
+			if uint64(level) >= config.KVNumOfLevels {
+				break
+			}
+			opts.TargetFileSizes[level] = targetFileSize
+			targetFileSize *= int64(config.KVTargetFileSizeMultiplier)
+		}
 	}
 	if fs != vfs.DefaultFS {
 		opts.FS = vfs.NewPebbleFS(fs)
@@ -217,7 +215,7 @@ func openPebbleDB(config config.LogDBConfig, callback kv.LogDBCallback,
 		kv:      kv,
 		stopper: syncutil.NewStopper(),
 	}
-	opts.EventListener = pebble.EventListener{
+	opts.EventListener = &pebble.EventListener{
 		WALCreated:    event.onWALCreated,
 		FlushEnd:      event.onFlushEnd,
 		CompactionEnd: event.onCompactionEnd,
@@ -235,7 +233,6 @@ func openPebbleDB(config config.LogDBConfig, callback kv.LogDBCallback,
 	if err != nil {
 		return nil, err
 	}
-	cache.Unref()
 	kv.db = pdb
 	kv.setEventListener(event)
 	return kv, nil
@@ -277,7 +274,10 @@ func iteratorIsValid(iter *pebble.Iterator) bool {
 // IterateValue ...
 func (r *KV) IterateValue(fk []byte, lk []byte, inc bool,
 	op func(key []byte, data []byte) (bool, error)) (err error) {
-	iter := r.db.NewIter(r.ro)
+	iter, err := r.db.NewIter(r.ro)
+	if err != nil {
+		return err
+	}
 	defer func() {
 		err = firstError(err, iter.Close())
 	}()
@@ -363,7 +363,7 @@ func (r *KV) BulkRemoveEntries(fk []byte, lk []byte) (err error) {
 
 // CompactEntries ...
 func (r *KV) CompactEntries(fk []byte, lk []byte) error {
-	return r.db.Compact(fk, lk, false)
+	return r.db.Compact(context.Background(), fk, lk, false)
 }
 
 // FullCompaction ...
@@ -374,5 +374,5 @@ func (r *KV) FullCompaction() error {
 		fk[i] = 0
 		lk[i] = 0xFF
 	}
-	return r.db.Compact(fk, lk, false)
+	return r.db.Compact(context.Background(), fk, lk, false)
 }

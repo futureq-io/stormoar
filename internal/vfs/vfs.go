@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"github.com/cockroachdb/errors/oserror"
-	pvfs "github.com/cockroachdb/pebble/vfs"
+	pvfs "github.com/cockroachdb/pebble/v2/vfs"
 
 	gvfs "github.com/lni/vfs"
 )
@@ -61,6 +61,10 @@ func NewPebbleFS(fs IFS) pvfs.FS {
 // GetDiskUsage ...
 func (p *PebbleFS) GetDiskUsage(path string) (pvfs.DiskUsage, error) {
 	du, err := p.fs.GetDiskUsage(path)
+	// lni/vfs returns an unexported error for disk usage on its memory filesystem.
+	if err != nil && err.Error() == "vfs: not supported" {
+		return pvfs.DiskUsage{}, pvfs.ErrUnsupported
+	}
 	return pvfs.DiskUsage{
 		AvailBytes: du.AvailBytes,
 		TotalBytes: du.TotalBytes,
@@ -69,8 +73,12 @@ func (p *PebbleFS) GetDiskUsage(path string) (pvfs.DiskUsage, error) {
 }
 
 // Create ...
-func (p *PebbleFS) Create(name string) (pvfs.File, error) {
-	return p.fs.Create(name)
+func (p *PebbleFS) Create(name string, _ pvfs.DiskWriteCategory) (pvfs.File, error) {
+	// Pebble requires a new inode when replacing a file, which may have hard links.
+	if err := p.fs.Remove(name); err != nil && !IsNotExist(err) {
+		return nil, err
+	}
+	return wrapPebbleFile(p.fs.Create(name))
 }
 
 // Link ...
@@ -80,7 +88,7 @@ func (p *PebbleFS) Link(oldname, newname string) error {
 
 // Open ...
 func (p *PebbleFS) Open(name string, opts ...pvfs.OpenOption) (pvfs.File, error) {
-	f, err := p.fs.Open(name)
+	f, err := wrapPebbleFile(p.fs.Open(name))
 	if err != nil {
 		return nil, err
 	}
@@ -90,9 +98,23 @@ func (p *PebbleFS) Open(name string, opts ...pvfs.OpenOption) (pvfs.File, error)
 	return f, nil
 }
 
+// OpenReadWrite is used by Pebble's optional shared object cache.
+func (p *PebbleFS) OpenReadWrite(name string, _ pvfs.DiskWriteCategory, _ ...pvfs.OpenOption) (pvfs.File, error) {
+	// The underlying filesystem only provides append mode for existing files.
+	return nil, &os.PathError{Op: "open read-write", Path: name, Err: pvfs.ErrUnsupported}
+}
+
 // OpenDir ...
 func (p *PebbleFS) OpenDir(name string) (pvfs.File, error) {
-	return p.fs.OpenDir(name)
+	f, err := p.fs.OpenDir(name)
+	if name == "." && IsNotExist(err) {
+		// Pebble syncs the database's parent. lni/vfs MemFS opens its root as "".
+		f, err = p.fs.OpenDir("")
+	}
+	if err != nil {
+		return nil, err
+	}
+	return pebbleFile{File: f, isDir: true}, nil
 }
 
 // Remove ...
@@ -111,8 +133,8 @@ func (p *PebbleFS) Rename(oldname, newname string) error {
 }
 
 // ReuseForWrite ...
-func (p *PebbleFS) ReuseForWrite(oldname, newname string) (pvfs.File, error) {
-	return p.fs.ReuseForWrite(oldname, newname)
+func (p *PebbleFS) ReuseForWrite(oldname, newname string, _ pvfs.DiskWriteCategory) (pvfs.File, error) {
+	return wrapPebbleFile(p.fs.ReuseForWrite(oldname, newname))
 }
 
 // MkdirAll ...
@@ -131,8 +153,8 @@ func (p *PebbleFS) List(dir string) ([]string, error) {
 }
 
 // Stat ...
-func (p *PebbleFS) Stat(name string) (os.FileInfo, error) {
-	return p.fs.Stat(name)
+func (p *PebbleFS) Stat(name string) (pvfs.FileInfo, error) {
+	return wrapPebbleFileInfo(p.fs.Stat(name))
 }
 
 // PathBase ...
@@ -149,6 +171,49 @@ func (p *PebbleFS) PathJoin(elem ...string) string {
 func (p *PebbleFS) PathDir(path string) string {
 	return p.fs.PathDir(path)
 }
+
+// Unwrap ends Pebble's wrapper chain at the underlying lni filesystem.
+func (p *PebbleFS) Unwrap() pvfs.FS { return nil }
+
+type pebbleFile struct {
+	File
+	isDir bool
+}
+
+func wrapPebbleFile(f File, err error) (pvfs.File, error) {
+	if err != nil {
+		return nil, err
+	}
+	return pebbleFile{File: f}, nil
+}
+
+func (f pebbleFile) Stat() (pvfs.FileInfo, error) {
+	return wrapPebbleFileInfo(f.File.Stat())
+}
+
+func (f pebbleFile) SyncTo(_ int64) (bool, error) {
+	if f.isDir {
+		return false, nil
+	}
+	err := f.Sync()
+	return err == nil, err
+}
+
+func (f pebbleFile) SyncData() error              { return f.Sync() }
+func (f pebbleFile) Preallocate(_, _ int64) error { return nil }
+func (f pebbleFile) Prefetch(_, _ int64) error    { return nil }
+func (f pebbleFile) Fd() uintptr                  { return pvfs.InvalidFd }
+
+type pebbleFileInfo struct{ os.FileInfo }
+
+func wrapPebbleFileInfo(info os.FileInfo, err error) (pvfs.FileInfo, error) {
+	if err != nil {
+		return nil, err
+	}
+	return pebbleFileInfo{info}, nil
+}
+
+func (pebbleFileInfo) DeviceID() pvfs.DeviceID { return pvfs.DeviceID{} }
 
 // IsNotExist returns a boolean value indicating whether the specified error is
 // to indicate that a file or directory does not exist.

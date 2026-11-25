@@ -21,6 +21,7 @@ import (
 	"io"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/lni/goutils/leaktest"
@@ -298,9 +299,11 @@ func TestCompactionReleaseStorageSpace(t *testing.T) {
 	require.NoError(t, err, "remove entry failed")
 	err = kvs.CompactEntries(fk.Key(), lk.Key())
 	require.NoError(t, err, "compaction failed")
-	sz, err = getDirSize(RDBTestDirectory, false, fs)
-	require.NoError(t, err, "failed to get sz")
-	require.LessOrEqual(t, sz, int64(1024*1024), "unexpected size")
+	// Pebble removes obsolete SSTs asynchronously after compaction.
+	require.Eventually(t, func() bool {
+		size, err := getDirSize(RDBTestDirectory, false, fs)
+		return err == nil && size <= 1024*1024
+	}, 5*time.Second, 10*time.Millisecond, "compaction did not release storage space")
 }
 
 var flagContent = "YYYY"
