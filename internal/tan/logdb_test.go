@@ -20,6 +20,7 @@ import (
 	"math"
 	"os"
 	"os/exec"
+	"sync"
 	"testing"
 
 	"github.com/futureq-io/stormoar/v4/config"
@@ -281,4 +282,86 @@ func TestConcurrentSaveRaftState(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint64(30), ss3.Term)
 	require.Equal(t, uint64(1500), ss3.Index)
+}
+
+func TestSaveRaftStateAcrossWALRotationSurvivesCrash(t *testing.T) {
+	fs := vfs.NewStrictMem()
+	cfg := config.NodeHostConfig{Expert: config.ExpertConfig{FS: fs}}
+	require.NoError(t, cfg.Prepare())
+	cfg.Expert.LogDB.KVWriteBufferSize = 4096
+	dirs := []string{"/db-dir"}
+	ldb, err := CreateLogMultiplexedTan(cfg, nil, dirs, nil)
+	require.NoError(t, err)
+	db, err := ldb.getDB(1, 1)
+	require.NoError(t, err)
+	db.opts.MaxLogFileSize = 1024
+	oldLogNum := db.mu.logNum
+	updates := []pb.Update{
+		{
+			ShardID:       1,
+			ReplicaID:     1,
+			State:         pb.State{Term: 1, Vote: 1, Commit: 1},
+			EntriesToSave: []pb.Entry{{Index: 1, Term: 1, Cmd: bytes.Repeat([]byte{1}, 2048)}},
+		},
+		{
+			ShardID:       17,
+			ReplicaID:     1,
+			State:         pb.State{Term: 2, Vote: 1, Commit: 1},
+			EntriesToSave: []pb.Entry{{Index: 1, Term: 2, Cmd: []byte{2}}},
+		},
+	}
+	require.NoError(t, ldb.SaveRaftState(updates, 1))
+	require.NotEqual(t, oldLogNum, db.mu.logNum)
+
+	// Discard unsynced writes, including index writes made during Close.
+	fs.SetIgnoreSyncs(true)
+	require.NoError(t, ldb.Close())
+	fs.ResetToSyncedState()
+	fs.SetIgnoreSyncs(false)
+
+	reopened, err := CreateLogMultiplexedTan(cfg, nil, dirs, nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, reopened.Close()) })
+	for _, update := range updates {
+		entries, _, err := reopened.IterateEntries(nil, 0, update.ShardID, update.ReplicaID,
+			1, 2, math.MaxUint64)
+		require.NoError(t, err)
+		require.Len(t, entries, 1, "shard %d", update.ShardID)
+		require.Equal(t, update.EntriesToSave, entries)
+		state, err := reopened.ReadRaftState(update.ShardID, update.ReplicaID, 0)
+		require.NoError(t, err)
+		require.Equal(t, update.State, state.State)
+	}
+}
+
+func TestConcurrentSnapshotSavesDuringWALRotation(t *testing.T) {
+	cfg := config.NodeHostConfig{Expert: config.ExpertConfig{FS: vfs.NewMem()}}
+	require.NoError(t, cfg.Prepare())
+	cfg.Expert.LogDB.KVWriteBufferSize = 4096
+	ldb, err := CreateTan(cfg, nil, []string{"db-dir"}, nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, ldb.Close()) })
+	db, err := ldb.getDB(1, 1)
+	require.NoError(t, err)
+	db.opts.MaxLogFileSize = 1
+
+	const savesPerWriter = 32
+	var wg sync.WaitGroup
+	for writer := uint64(0); writer < 2; writer++ {
+		wg.Go(func() {
+			for i := uint64(1); i <= savesPerWriter; i++ {
+				update := pb.Update{ShardID: 1, ReplicaID: 1, Snapshot: pb.Snapshot{
+					Index: writer*savesPerWriter + i, Term: 1,
+				}}
+				if err := ldb.SaveSnapshots([]pb.Update{update}); err != nil {
+					t.Error(err)
+					return
+				}
+			}
+		})
+	}
+	wg.Wait()
+	snapshot, err := ldb.GetSnapshot(1, 1)
+	require.NoError(t, err)
+	require.EqualValues(t, 2*savesPerWriter, snapshot.Index)
 }

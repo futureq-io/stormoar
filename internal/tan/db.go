@@ -73,6 +73,10 @@ type db struct {
 		val *readState
 	}
 
+	// walMu keeps the active file open during fsync. Acquire mu first when
+	// both locks are needed.
+	walMu sync.RWMutex
+
 	// where/how log data is maintained
 	mu struct {
 		sync.Mutex
@@ -129,8 +133,10 @@ func (d *db) doWriteLocked(u pb.Update, data []byte) error {
 	return nil
 }
 
-// sync issues a fsync() operation on the underlying log file.
+// sync flushes the active log while keeping the file open.
 func (d *db) sync() error {
+	d.walMu.RLock()
+	defer d.walMu.RUnlock()
 	return d.mu.logFile.Sync()
 }
 
@@ -179,9 +185,14 @@ func (d *db) makeRoomForWrite() error {
 	return d.switchToNewLog()
 }
 
-// switchToNewLog flushes the index of the current log file to disk, update the
-// readState hold by the db and then switch to a new log file.
+// switchToNewLog makes the current log and its index durable before rotating.
+// The caller must hold d.mu.
 func (d *db) switchToNewLog() error {
+	// A sync requested by an earlier write may still be pending. Flush this
+	// segment before publishing its index or closing it.
+	if err := d.sync(); err != nil {
+		return err
+	}
 	if err := d.saveIndex(); err != nil {
 		return err
 	}
