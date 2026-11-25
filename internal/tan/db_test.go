@@ -23,6 +23,7 @@ import (
 	"os"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/lni/goutils/leaktest"
@@ -376,6 +377,89 @@ func TestLogRotation(t *testing.T) {
 		require.NoError(t, err)
 	}
 	runTanTest(t, opts, tf, fs)
+}
+
+func TestWALRotationStopsWhenSyncFails(t *testing.T) {
+	fs := vfs.NewMem()
+	opts := &Options{MaxLogFileSize: 1, FS: fs}
+	runTanTest(t, opts, func(t *testing.T, db *db) {
+		update := pb.Update{ShardID: 1, ReplicaID: 1, EntriesToSave: []pb.Entry{{Index: 1, Term: 1}}}
+		buf := make([]byte, 1024)
+		_, err := db.write(update, buf)
+		require.NoError(t, err)
+		oldLogNum := db.mu.logNum
+		db.mu.logFile = vfs.WrapFile(db.mu.logFile, vfs.OnIndex(0, vfs.OpSync))
+
+		update.EntriesToSave[0].Index = 2
+		_, err = db.write(update, buf)
+		require.ErrorIs(t, err, vfs.ErrInjected)
+		require.Equal(t, oldLogNum, db.mu.logNum)
+		_, err = fs.Stat(makeFilename(fs, db.dirname, fileTypeIndex, oldLogNum))
+		require.True(t, os.IsNotExist(err), "index was published before WAL sync: %v", err)
+
+		_, err = db.write(update, buf)
+		require.NoError(t, err)
+		require.NotEqual(t, oldLogNum, db.mu.logNum)
+		entries, _, err := db.getEntries(1, 1, nil, 0, 1, 3, math.MaxUint64)
+		require.NoError(t, err)
+		require.Equal(t, []pb.Entry{{Index: 1, Term: 1}, {Index: 2, Term: 1}}, entries)
+	}, fs)
+}
+
+type pausedWALSyncFile struct {
+	vfs.File
+	started chan<- struct{}
+	resume  <-chan struct{}
+}
+
+func (f pausedWALSyncFile) Sync() error {
+	close(f.started)
+	<-f.resume
+	return f.File.Sync()
+}
+
+func TestWALSyncAllowsRaftReadsAndAppends(t *testing.T) {
+	runTanTest(t, nil, func(t *testing.T, db *db) {
+		_, err := db.write(pb.Update{
+			ShardID: 1, ReplicaID: 1, State: pb.State{Term: 1, Commit: 1},
+			EntriesToSave: []pb.Entry{{Index: 1, Term: 1}},
+		}, make([]byte, 1024))
+		require.NoError(t, err)
+
+		started := make(chan struct{})
+		resume := make(chan struct{})
+		db.mu.logFile = pausedWALSyncFile{File: db.mu.logFile, started: started, resume: resume}
+		var wg sync.WaitGroup
+		syncDone := make(chan error, 1)
+		wg.Go(func() { syncDone <- db.sync() })
+		defer func() {
+			close(resume)
+			wg.Wait()
+			require.NoError(t, <-syncDone)
+		}()
+		<-started
+
+		readDone := make(chan error, 1)
+		wg.Go(func() {
+			_, err := db.getRaftState(1, 1, 0)
+			readDone <- err
+		})
+		writeDone := make(chan error, 1)
+		wg.Go(func() {
+			_, err := db.write(pb.Update{
+				ShardID: 17, ReplicaID: 1, EntriesToSave: []pb.Entry{{Index: 1, Term: 1}},
+			}, make([]byte, 1024))
+			writeDone <- err
+		})
+		for _, done := range []<-chan error{readDone, writeDone} {
+			select {
+			case err := <-done:
+				require.NoError(t, err)
+			case <-time.After(5 * time.Second):
+				t.Fatal("Raft read or append waited for an unrelated WAL sync")
+			}
+		}
+	}, vfs.NewMem())
 }
 
 func TestDBRestart(t *testing.T) {

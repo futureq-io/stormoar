@@ -168,7 +168,10 @@ func (d *db) id() string {
 	return d.name
 }
 
+// createNewLog replaces the active WAL. The caller must hold d.mu.
 func (d *db) createNewLog() error {
+	d.walMu.Lock()
+	defer d.walMu.Unlock()
 	if d.mu.logFile != nil {
 		if err := d.mu.logFile.Close(); err != nil {
 			return err
@@ -275,6 +278,8 @@ func (d *db) close() error {
 	d.deleteobsoleteWorker.Stop()
 	d.mu.Lock()
 	defer d.mu.Unlock()
+	d.walMu.Lock()
+	defer d.walMu.Unlock()
 	if err := d.closed.Load(); err != nil {
 		panic(err)
 	}
