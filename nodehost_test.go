@@ -4671,17 +4671,13 @@ func TestRaftEventsAreReported(t *testing.T) {
 	runNodeHostTest(t, to, fs)
 }
 
-func TestV2DataCanBeHandled(t *testing.T) {
+func TestLegacyPebbleFormatIsRejected(t *testing.T) {
 	fs := vfs.GetTestFS()
-	if vfs.GetTestFS() != vfs.DefaultFS {
+	if fs != vfs.DefaultFS {
 		t.Skip("skipped as not using the default fs")
 	}
 	v2datafp := "internal/logdb/testdata/v2-rocksdb-batched.tar.bz2"
-	targetDir := "test-v2-data-safe-to-remove"
-	require.NoError(t, fs.RemoveAll(targetDir))
-	defer func() {
-		require.NoError(t, fs.RemoveAll(targetDir))
-	}()
+	targetDir := t.TempDir()
 
 	topDirName := "single_nodehost_test_dir_safe_to_delete"
 	testHostname := "lindfield.local"
@@ -4697,26 +4693,14 @@ func TestV2DataCanBeHandled(t *testing.T) {
 	}
 
 	v2dataDir := fs.PathJoin(targetDir, topDirName)
-	to := &testOption{
-		noElection: true,
-		updateNodeHostConfig: func(c *config.NodeHostConfig) *config.NodeHostConfig {
-			c.WALDir = v2dataDir
-			c.NodeHostDir = v2dataDir
-			return c
-		},
-		tf: func(nh *NodeHost) {
-			name := nh.mu.logdb.Name()
-			if name != "sharded-pebble" {
-				t.Skip("skipped as not using rocksdb compatible logdb")
-			}
-			logdb := nh.mu.logdb
-			rs, err := logdb.ReadRaftState(2, 1, 0)
-			require.NoError(t, err, "failed to get raft state %v", err)
-			assert.Equal(t, uint64(3), rs.EntryCount, "unexpected entry count")
-			assert.Equal(t, uint64(3), rs.State.Commit, "unexpected commit")
-		},
+	cfg := getTestNodeHostConfig(fs)
+	cfg.WALDir = v2dataDir
+	cfg.NodeHostDir = v2dataDir
+	nh, err := NewNodeHost(*cfg)
+	if nh != nil {
+		nh.Close()
 	}
-	runNodeHostTest(t, to, fs)
+	require.ErrorContains(t, err, "was written in format major version 1, which is no longer supported")
 }
 
 func TestSnapshotCanBeCompressed(t *testing.T) {
@@ -4964,8 +4948,7 @@ func testIOErrorIsHandled(t *testing.T, op vfs.Op) {
 				"proposal unexpectedly completed, %v", err)
 			select {
 			case e := <-nh.engine.ec:
-				require.Equal(t, vfs.ErrInjected, e,
-					"failed to return the expected error, %v", e)
+				require.ErrorContains(t, e, vfs.ErrInjected.Error())
 			default:
 				require.Fail(t, "failed to trigger error")
 			}
