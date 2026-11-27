@@ -165,6 +165,9 @@ func openPebbleDB(config config.LogDBConfig, callback kv.LogDBCallback,
 	if config.IsEmpty() {
 		panic("invalid LogDBConfig")
 	}
+	if config.PebbleCompactionConcurrency < 0 {
+		return nil, fmt.Errorf("pebble compaction concurrency must be nonnegative")
+	}
 	pebbleWarning.Do(func() {
 		if fs == vfs.MemStrictFS {
 			plog.Warningf("running in pebble memfs test mode")
@@ -191,6 +194,9 @@ func openPebbleDB(config config.LogDBConfig, callback kv.LogDBCallback,
 	}
 	if interval := config.PebbleWALMinSyncInterval; interval > 0 {
 		opts.WALMinSyncInterval = func() time.Duration { return interval }
+	}
+	if concurrency := config.PebbleCompactionConcurrency; concurrency > 0 {
+		opts.CompactionConcurrencyRange = func() (int, int) { return concurrency, concurrency }
 	}
 	if config.KVNumOfLevels > 0 {
 		opts.Levels[0].BlockSize = int(config.KVBlockSize)
