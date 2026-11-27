@@ -797,6 +797,13 @@ type LogDBConfig struct {
 	KVBlockSize                        uint64
 	SaveBufferSize                     uint64
 	MaxSaveBufferSize                  uint64
+
+	// PebbleWALMinSyncInterval is the minimum time between WAL syncs in
+	// each Pebble LogDB shard. Zero disables the delay. Tan ignores it.
+	PebbleWALMinSyncInterval time.Duration
+	// PebbleCompactionConcurrency sets the regular compaction concurrency per
+	// Pebble LogDB shard. Zero uses Pebble's default of one. Tan ignores it.
+	PebbleCompactionConcurrency int
 }
 
 // GetDefaultLogDBConfig returns the default configurations for the LogDB
