@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/cockroachdb/pebble/v2"
 	"github.com/lni/goutils/syncutil"
@@ -187,6 +188,9 @@ func openPebbleDB(config config.LogDBConfig, callback kv.LogDBCallback,
 		L0StopWritesThreshold:       int(config.KVLevel0StopWritesTrigger),
 		Cache:                       cache,
 		Logger:                      PebbleLogger,
+	}
+	if interval := config.PebbleWALMinSyncInterval; interval > 0 {
+		opts.WALMinSyncInterval = func() time.Duration { return interval }
 	}
 	if config.KVNumOfLevels > 0 {
 		opts.Levels[0].BlockSize = int(config.KVBlockSize)
